@@ -37,44 +37,47 @@ function createInitialStats() {
   return stats;
 }
 
-// Converte texto CSV em Array de Objetos (robusto contra \r\n)
-function parseCSV(text) {
+// Converte texto CSV simples em matriz de linhas/colunas
+function parseCSVRows(text) {
   if (!text) return [];
-  const cleanText = text.replace(/\r/g, '');
-  const lines = cleanText.trim().split('\n');
-  if (lines.length < 2) return [];
-
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-  const data = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
-    const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
-    const row = {};
-    headers.forEach((header, index) => {
-      row[header] = values[index] !== undefined ? values[index] : '';
-    });
-    // Guarda também os valores por índice caso o nome do cabeçalho mude
-    row['_raw'] = values;
-    data.push(row);
-  }
-  return data;
+  const lines = text.replace(/\r/g, '').trim().split('\n');
+  return lines.map(line => {
+    // Separa por vírgulas respeitando aspas duplas se existirem
+    return line.split(',').map(cell => cell.trim().replace(/^"|"$/g, ''));
+  });
 }
 
 // Processa as estatísticas da Fase de Grupos
-function calculateStandings(groupMatches) {
+function calculateStandings(rows) {
   const stats = createInitialStats();
+  if (rows.length < 2) return stats;
 
-  groupMatches.forEach(match => {
-    const home = match['Time Mandante'] ? match['Time Mandante'].trim() : '';
-    const away = match['Time Visitante'] ? match['Time Visitante'].trim() : '';
-    const scoreHomeStr = match['Placar Mandante'] !== undefined ? match['Placar Mandante'].trim() : '';
-    const scoreAwayStr = match['Placar Visitante'] !== undefined ? match['Placar Visitante'].trim() : '';
+  // Descobre índice de cada coluna no cabeçalho (linha 0)
+  const header = rows[0].map(h => h.toLowerCase());
+  const idxMandante = header.findIndex(h => h.includes('mandante') && !h.includes('placar'));
+  const idxVisitante = header.findIndex(h => h.includes('visitante') && !h.includes('placar'));
+  const idxPlacarM = header.findIndex(h => h.includes('placar mandante') || h.includes('placar_m') || h === 'placar mandante');
+  const idxPlacarV = header.findIndex(h => h.includes('placar visitante') || h.includes('placar_v') || h === 'placar visitante');
 
-    // Considera apenas jogos com placar numérico preenchido
-    if (scoreHomeStr !== '' && scoreAwayStr !== '' && !isNaN(scoreHomeStr) && !isNaN(scoreAwayStr)) {
-      const scoreHome = parseInt(scoreHomeStr, 10);
-      const scoreAway = parseInt(scoreAwayStr, 10);
+  // Caso os nomes exatos não sejam achados pelo header, usa as posições padrão da imagem (C=2, D=3, E=4, F=5)
+  const colHome = idxMandante !== -1 ? idxMandante : 2;
+  const colPlacarHome = idxPlacarM !== -1 ? idxPlacarM : 3;
+  const colPlacarAway = idxPlacarV !== -1 ? idxPlacarV : 4;
+  const colAway = idxVisitante !== -1 ? idxVisitante : 5;
+
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.length <= colAway) continue;
+
+    const home = row[colHome] ? row[colHome].trim() : '';
+    const away = row[colAway] ? row[colAway].trim() : '';
+    const pHomeStr = row[colPlacarHome] !== undefined ? row[colPlacarHome].trim() : '';
+    const pAwayStr = row[colPlacarAway] !== undefined ? row[colPlacarAway].trim() : '';
+
+    // Verifica se os placares contêm valores numéricos válidos
+    if (pHomeStr !== '' && pAwayStr !== '' && !isNaN(pHomeStr) && !isNaN(pAwayStr)) {
+      const scoreHome = parseInt(pHomeStr, 10);
+      const scoreAway = parseInt(pAwayStr, 10);
 
       if (stats[home] && stats[away]) {
         stats[home].j++;
@@ -104,7 +107,7 @@ function calculateStandings(groupMatches) {
         }
       }
     }
-  });
+  }
 
   return stats;
 }
@@ -119,7 +122,7 @@ function sortGroup(teamsList) {
   });
 }
 
-// Renderiza a tabela HTML de um determinado grupo
+// Renderiza a tabela HTML de um grupo
 function renderTable(tableId, teamsData) {
   const tbody = document.querySelector(`#${tableId} tbody`);
   if (!tbody) return;
@@ -143,22 +146,23 @@ function renderTable(tableId, teamsData) {
   });
 }
 
-// Processa e renderiza o Ranking de Artilharia
-function renderArtilharia(golsData) {
+// Processa e renderiza o Ranking de Artilharia (busca direta pela Coluna B, C e D)
+function renderArtilharia(rows) {
   const tbody = document.querySelector('#table-artilharia tbody');
   if (!tbody) return;
   tbody.innerHTML = '';
 
   const players = {};
 
-  if (Array.isArray(golsData)) {
-    golsData.forEach(row => {
-      const nome = row['Jogador'] ? row['Jogador'].trim() : '';
-      const time = row['Time'] ? row['Time'].trim() : '';
-      
-      // Busca a quantidade de gols testando várias colunas (D ou E)
-      const rawGols = row['Gols'] || (row['_raw'] ? row['_raw'][3] || row['_raw'][4] : '0');
-      const qtdGols = parseInt(rawGols || '0', 10);
+  if (rows.length > 1) {
+    // Posições baseadas no print 3: Coluna B=1 (Jogador), Coluna C=2 (Time), Coluna D=3 (Gols)
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || row.length < 4) continue;
+
+      const nome = row[1] ? row[1].trim() : '';
+      const time = row[2] ? row[2].trim() : '';
+      const qtdGols = parseInt(row[3] || '0', 10);
 
       if (nome && !isNaN(qtdGols) && qtdGols > 0) {
         const key = `${nome}_${time}`;
@@ -167,13 +171,13 @@ function renderArtilharia(golsData) {
         }
         players[key].gols += qtdGols;
       }
-    });
+    }
   }
 
   const sortedPlayers = Object.values(players).sort((a, b) => b.gols - a.gols);
 
   if (sortedPlayers.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#718096; padding: 12px;">Nenhum gol registrado ainda.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#718096; padding:12px;">Nenhum gol registrado ainda.</td></tr>';
     return;
   }
 
@@ -190,18 +194,28 @@ function renderArtilharia(golsData) {
 }
 
 // Renderiza os cards dos jogos da Fase de Grupos
-function renderMatches(matches) {
+function renderMatches(rows) {
   const container = document.getElementById('matches-list');
   if (!container) return;
   container.innerHTML = '';
 
-  matches.forEach(match => {
-    const home = match['Time Mandante'] || '';
-    const away = match['Time Visitante'] || '';
-    const pHome = match['Placar Mandante'] !== '' && match['Placar Mandante'] !== undefined ? match['Placar Mandante'] : '-';
-    const pAway = match['Placar Visitante'] !== '' && match['Placar Visitante'] !== undefined ? match['Placar Visitante'] : '-';
-    const date = match['Data'] || '';
-    const time = match['Hora'] || '';
+  if (rows.length < 2) return;
+
+  // Índices baseados na estrutura: Data(0), Hora(1), Mandante(2), PlacarM(3), PlacarV(4), Visitante(5), Grupo(6), Fase(7)
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.length < 6) continue;
+
+    const fase = row[7] ? row[7].toLowerCase() : '';
+    // Exibe apenas os jogos que são da Fase de Grupos
+    if (fase && !fase.includes('grupo')) continue;
+
+    const date = row[0] || '';
+    const time = row[1] || '';
+    const home = row[2] || '';
+    const pHome = row[3] !== undefined && row[3] !== '' ? row[3] : '-';
+    const pAway = row[4] !== undefined && row[4] !== '' ? row[4] : '-';
+    const away = row[5] || '';
 
     const card = document.createElement('div');
     card.className = 'match-card';
@@ -214,23 +228,28 @@ function renderMatches(matches) {
       </div>
     `;
     container.appendChild(card);
-  });
+  }
 }
 
-// Renderiza a Fase Final buscando datas, horários e times definidos
-function renderPlayoffs(groupA, groupB, allMatches) {
+// Renderiza a Fase Final
+function renderPlayoffs(groupA, groupB, rows) {
   const team1A = groupA[0] && groupA[0].j > 0 ? groupA[0].name : '1º do Grupo A';
   const team2A = groupA[1] && groupA[1].j > 0 ? groupA[1].name : '2º do Grupo A';
   const team1B = groupB[0] && groupB[0].j > 0 ? groupB[0].name : '1º do Grupo B';
   const team2B = groupB[1] && groupB[1].j > 0 ? groupB[1].name : '2º do Grupo B';
 
-  const semi1Data = allMatches.find(m => m['Fase'] && m['Fase'].toLowerCase().includes('semifinal 1')) || {};
-  const semi2Data = allMatches.find(m => m['Fase'] && m['Fase'].toLowerCase().includes('semifinal 2')) || {};
-  const finalData = allMatches.find(m => m['Fase'] && m['Fase'].toLowerCase().includes('final')) || {};
+  let semi1Row = null, semi2Row = null, finalRow = null;
 
-  const getHeader = (data) => {
-    if (!data['Data'] && !data['Hora']) return 'A definir';
-    return `${data['Data'] || ''} ${data['Hora'] ? '• ' + data['Hora'] : ''}`;
+  for (let i = 1; i < rows.length; i++) {
+    const fase = rows[i][7] ? rows[i][7].toLowerCase() : '';
+    if (fase.includes('semifinal 1')) semi1Row = rows[i];
+    if (fase.includes('semifinal 2')) semi2Row = rows[i];
+    if (fase.includes('final') && !fase.includes('semifinal')) finalRow = rows[i];
+  }
+
+  const getHeader = (row) => {
+    if (!row || (!row[0] && !row[1])) return 'A definir';
+    return `${row[0] || ''} ${row[1] ? '• ' + row[1] : ''}`;
   };
 
   const elSemi1 = document.getElementById('semi-1');
@@ -239,55 +258,51 @@ function renderPlayoffs(groupA, groupB, allMatches) {
 
   if (elSemi1) {
     elSemi1.innerHTML = `
-      <div class="match-header">${getHeader(semi1Data)}</div>
+      <div class="match-header">${getHeader(semi1Row)}</div>
       <div style="margin-top: 8px;">${team1A} <br><small>vs</small><br> ${team2B}</div>
     `;
   }
 
   if (elSemi2) {
     elSemi2.innerHTML = `
-      <div class="match-header">${getHeader(semi2Data)}</div>
+      <div class="match-header">${getHeader(semi2Row)}</div>
       <div style="margin-top: 8px;">${team1B} <br><small>vs</small><br> ${team2A}</div>
     `;
   }
 
   if (elFinal) {
     elFinal.innerHTML = `
-      <div class="match-header">${getHeader(finalData)}</div>
+      <div class="match-header">${getHeader(finalRow)}</div>
       <div style="margin-top: 8px;">Vencedor Semifinal 1 <br><small>vs</small><br> Vencedor Semifinal 2</div>
     `;
   }
 }
 
-// Função principal de inicialização
+// Inicialização principal
 async function init() {
-  // 1. Carrega Jogos
-  let allMatches = [];
+  let jogosRows = [];
   try {
-    const responseJogos = await fetch(CSV_JOGOS_URL);
-    if (!responseJogos.ok) throw new Error('Falha ao baixar CSV dos Jogos');
-    const csvJogosText = await responseJogos.text();
-    allMatches = parseCSV(csvJogosText);
-  } catch (error) {
-    console.error('Erro ao carregar dados dos Jogos:', error);
-  }
-
-  // 2. Carrega Gols (isolado para não travar o resto caso falhe)
-  let golsData = [];
-  try {
-    const responseGols = await fetch(CSV_GOLS_URL);
-    if (responseGols.ok) {
-      const csvGolsText = await responseGols.text();
-      golsData = parseCSV(csvGolsText);
+    const res = await fetch(CSV_JOGOS_URL);
+    if (res.ok) {
+      const text = await res.text();
+      jogosRows = parseCSVRows(text);
     }
-  } catch (error) {
-    console.warn('Tabela de gols indisponível no momento:', error);
+  } catch (err) {
+    console.error('Erro ao carregar jogos:', err);
   }
 
-  // 3. Processa e exibe os dados
-  const groupMatches = allMatches.filter(m => !m['Fase'] || m['Fase'].toLowerCase().includes('grupo'));
+  let golsRows = [];
+  try {
+    const res = await fetch(CSV_GOLS_URL);
+    if (res.ok) {
+      const text = await res.text();
+      golsRows = parseCSVRows(text);
+    }
+  } catch (err) {
+    console.error('Erro ao carregar gols:', err);
+  }
 
-  const stats = calculateStandings(groupMatches);
+  const stats = calculateStandings(jogosRows);
   const listA = Object.values(stats).filter(t => t.group === 'A');
   const listB = Object.values(stats).filter(t => t.group === 'B');
 
@@ -296,10 +311,9 @@ async function init() {
 
   renderTable('table-grupo-a', sortedA);
   renderTable('table-grupo-b', sortedB);
-  renderArtilharia(golsData);
-  renderMatches(groupMatches);
-  renderPlayoffs(sortedA, sortedB, allMatches);
+  renderArtilharia(golsRows);
+  renderMatches(jogosRows);
+  renderPlayoffs(sortedA, sortedB, jogosRows);
 }
 
-// Executa ao carregar a página
 document.addEventListener('DOMContentLoaded', init);
