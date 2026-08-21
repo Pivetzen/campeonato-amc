@@ -1,9 +1,11 @@
-// URL do CSV da aba 'Jogos'
-const CSV_JOGOS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTslKPXBa5hNo0fPIwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDldntNxFO/pub?gid=0&single=true&output=csv'
-';
+// ==========================================
+// CONFIGURAÇÃO DOS LINKS DAS PLANILHAS (CSV)
+// ==========================================
+// Aba 'Jogos' (gid=0)
+const CSV_JOGOS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTSlKPXBa5hNoOfPlwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDIdntNxFO/pub?gid=0&single=true&output=csv';
 
-// URL do CSV da aba 'Gols'
-const CSV_GOLS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTslKPXBa5hNo0fPIwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDldntNxFO/pub?gid=648851691&single=true&output=csv';
+// Aba 'Gols' (gid=648851691)
+const CSV_GOLS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTSlKPXBa5hNoOfPlwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDIdntNxFO/pub?gid=648851691&single=true&output=csv';
 
 // Definição dos times e seus respectivos grupos
 const TEAMS = {
@@ -35,21 +37,25 @@ function createInitialStats() {
   return stats;
 }
 
-// Converte texto CSV em Array/Objetos
+// Converte texto CSV em Array de Objetos (robusto contra \r\n)
 function parseCSV(text) {
-  const lines = text.trim().split('\n');
-  if (lines.length === 0) return [];
+  if (!text) return [];
+  const cleanText = text.replace(/\r/g, '');
+  const lines = cleanText.trim().split('\n');
+  if (lines.length < 2) return [];
 
-  const headers = lines[0].split(',').map(h => h.trim().replace(/\r/g, ''));
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
   const data = [];
 
   for (let i = 1; i < lines.length; i++) {
     if (!lines[i].trim()) continue;
-    const values = lines[i].split(',').map(v => v.trim().replace(/\r/g, ''));
+    const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
     const row = {};
     headers.forEach((header, index) => {
-      row[header] = values[index] || '';
+      row[header] = values[index] !== undefined ? values[index] : '';
     });
+    // Guarda também os valores por índice caso o nome do cabeçalho mude
+    row['_raw'] = values;
     data.push(row);
   }
   return data;
@@ -60,10 +66,10 @@ function calculateStandings(groupMatches) {
   const stats = createInitialStats();
 
   groupMatches.forEach(match => {
-    const home = match['Time Mandante'];
-    const away = match['Time Visitante'];
-    const scoreHomeStr = match['Placar Mandante'];
-    const scoreAwayStr = match['Placar Visitante'];
+    const home = match['Time Mandante'] ? match['Time Mandante'].trim() : '';
+    const away = match['Time Visitante'] ? match['Time Visitante'].trim() : '';
+    const scoreHomeStr = match['Placar Mandante'] !== undefined ? match['Placar Mandante'].trim() : '';
+    const scoreAwayStr = match['Placar Visitante'] !== undefined ? match['Placar Visitante'].trim() : '';
 
     // Considera apenas jogos com placar numérico preenchido
     if (scoreHomeStr !== '' && scoreAwayStr !== '' && !isNaN(scoreHomeStr) && !isNaN(scoreAwayStr)) {
@@ -116,6 +122,7 @@ function sortGroup(teamsList) {
 // Renderiza a tabela HTML de um determinado grupo
 function renderTable(tableId, teamsData) {
   const tbody = document.querySelector(`#${tableId} tbody`);
+  if (!tbody) return;
   tbody.innerHTML = '';
 
   teamsData.forEach((team, index) => {
@@ -138,31 +145,35 @@ function renderTable(tableId, teamsData) {
 
 // Processa e renderiza o Ranking de Artilharia
 function renderArtilharia(golsData) {
-  const players = {};
-
-  golsData.forEach(row => {
-    const nome = row['Jogador'] ? row['Jogador'].trim() : '';
-    const time = row['Time'] ? row['Time'].trim() : '';
-    const qtdGols = parseInt(row['Gols'] || '0', 10);
-
-    if (nome && !isNaN(qtdGols) && qtdGols > 0) {
-      const key = `${nome}_${time}`;
-      if (!players[key]) {
-        players[key] = { nome, time, gols: 0 };
-      }
-      players[key].gols += qtdGols;
-    }
-  });
-
-  // Ordena por quantidade de gols (maior para menor)
-  const sortedPlayers = Object.values(players).sort((a, b) => b.gols - a.gols);
-
   const tbody = document.querySelector('#table-artilharia tbody');
   if (!tbody) return;
   tbody.innerHTML = '';
 
+  const players = {};
+
+  if (Array.isArray(golsData)) {
+    golsData.forEach(row => {
+      const nome = row['Jogador'] ? row['Jogador'].trim() : '';
+      const time = row['Time'] ? row['Time'].trim() : '';
+      
+      // Busca a quantidade de gols testando várias colunas (D ou E)
+      const rawGols = row['Gols'] || (row['_raw'] ? row['_raw'][3] || row['_raw'][4] : '0');
+      const qtdGols = parseInt(rawGols || '0', 10);
+
+      if (nome && !isNaN(qtdGols) && qtdGols > 0) {
+        const key = `${nome}_${time}`;
+        if (!players[key]) {
+          players[key] = { nome, time, gols: 0 };
+        }
+        players[key].gols += qtdGols;
+      }
+    });
+  }
+
+  const sortedPlayers = Object.values(players).sort((a, b) => b.gols - a.gols);
+
   if (sortedPlayers.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4">Nenhum gol registrado ainda.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#718096; padding: 12px;">Nenhum gol registrado ainda.</td></tr>';
     return;
   }
 
@@ -181,13 +192,14 @@ function renderArtilharia(golsData) {
 // Renderiza os cards dos jogos da Fase de Grupos
 function renderMatches(matches) {
   const container = document.getElementById('matches-list');
+  if (!container) return;
   container.innerHTML = '';
 
   matches.forEach(match => {
-    const home = match['Time Mandante'];
-    const away = match['Time Visitante'];
-    const pHome = match['Placar Mandante'] !== '' ? match['Placar Mandante'] : '-';
-    const pAway = match['Placar Visitante'] !== '' ? match['Placar Visitante'] : '-';
+    const home = match['Time Mandante'] || '';
+    const away = match['Time Visitante'] || '';
+    const pHome = match['Placar Mandante'] !== '' && match['Placar Mandante'] !== undefined ? match['Placar Mandante'] : '-';
+    const pAway = match['Placar Visitante'] !== '' && match['Placar Visitante'] !== undefined ? match['Placar Visitante'] : '-';
     const date = match['Data'] || '';
     const time = match['Hora'] || '';
 
@@ -207,10 +219,10 @@ function renderMatches(matches) {
 
 // Renderiza a Fase Final buscando datas, horários e times definidos
 function renderPlayoffs(groupA, groupB, allMatches) {
-  const team1A = groupA[0] ? groupA[0].name : '1º do Grupo A';
-  const team2A = groupA[1] ? groupA[1].name : '2º do Grupo A';
-  const team1B = groupB[0] ? groupB[0].name : '1º do Grupo B';
-  const team2B = groupB[1] ? groupB[1].name : '2º do Grupo B';
+  const team1A = groupA[0] && groupA[0].j > 0 ? groupA[0].name : '1º do Grupo A';
+  const team2A = groupA[1] && groupA[1].j > 0 ? groupA[1].name : '2º do Grupo A';
+  const team1B = groupB[0] && groupB[0].j > 0 ? groupB[0].name : '1º do Grupo B';
+  const team2B = groupB[1] && groupB[1].j > 0 ? groupB[1].name : '2º do Grupo B';
 
   const semi1Data = allMatches.find(m => m['Fase'] && m['Fase'].toLowerCase().includes('semifinal 1')) || {};
   const semi2Data = allMatches.find(m => m['Fase'] && m['Fase'].toLowerCase().includes('semifinal 2')) || {};
@@ -221,62 +233,73 @@ function renderPlayoffs(groupA, groupB, allMatches) {
     return `${data['Data'] || ''} ${data['Hora'] ? '• ' + data['Hora'] : ''}`;
   };
 
-  document.getElementById('semi-1').innerHTML = `
-    <div class="match-header">${getHeader(semi1Data)}</div>
-    <div style="margin-top: 8px;">${team1A} <br><small>vs</small><br> ${team2B}</div>
-  `;
+  const elSemi1 = document.getElementById('semi-1');
+  const elSemi2 = document.getElementById('semi-2');
+  const elFinal = document.getElementById('final-match');
 
-  document.getElementById('semi-2').innerHTML = `
-    <div class="match-header">${getHeader(semi2Data)}</div>
-    <div style="margin-top: 8px;">${team1B} <br><small>vs</small><br> ${team2A}</div>
-  `;
+  if (elSemi1) {
+    elSemi1.innerHTML = `
+      <div class="match-header">${getHeader(semi1Data)}</div>
+      <div style="margin-top: 8px;">${team1A} <br><small>vs</small><br> ${team2B}</div>
+    `;
+  }
 
-  document.getElementById('final-match').innerHTML = `
-    <div class="match-header">${getHeader(finalData)}</div>
-    <div style="margin-top: 8px;">Vencedor Semifinal 1 <br><small>vs</small><br> Vencedor Semifinal 2</div>
-  `;
+  if (elSemi2) {
+    elSemi2.innerHTML = `
+      <div class="match-header">${getHeader(semi2Data)}</div>
+      <div style="margin-top: 8px;">${team1B} <br><small>vs</small><br> ${team2A}</div>
+    `;
+  }
+
+  if (elFinal) {
+    elFinal.innerHTML = `
+      <div class="match-header">${getHeader(finalData)}</div>
+      <div style="margin-top: 8px;">Vencedor Semifinal 1 <br><small>vs</small><br> Vencedor Semifinal 2</div>
+    `;
+  }
 }
 
 // Função principal de inicialização
 async function init() {
+  // 1. Carrega Jogos
+  let allMatches = [];
   try {
-    // Busca dados dos Jogos
     const responseJogos = await fetch(CSV_JOGOS_URL);
+    if (!responseJogos.ok) throw new Error('Falha ao baixar CSV dos Jogos');
     const csvJogosText = await responseJogos.text();
-    const allMatches = parseCSV(csvJogosText);
+    allMatches = parseCSV(csvJogosText);
+  } catch (error) {
+    console.error('Erro ao carregar dados dos Jogos:', error);
+  }
 
-    // Busca dados dos Gols (Artilharia)
-    let golsData = [];
-    try {
-      const responseGols = await fetch(CSV_GOLS_URL);
+  // 2. Carrega Gols (isolado para não travar o resto caso falhe)
+  let golsData = [];
+  try {
+    const responseGols = await fetch(CSV_GOLS_URL);
+    if (responseGols.ok) {
       const csvGolsText = await responseGols.text();
       golsData = parseCSV(csvGolsText);
-    } catch (e) {
-      console.warn('Tabela de gols ainda não configurada ou não acessível.', e);
     }
-
-    // Filtra apenas jogos da Fase de Grupos
-    const groupMatches = allMatches.filter(m => !m['Fase'] || m['Fase'].toLowerCase().includes('grupo'));
-
-    // Processa classificação
-    const stats = calculateStandings(groupMatches);
-    const listA = Object.values(stats).filter(t => t.group === 'A');
-    const listB = Object.values(stats).filter(t => t.group === 'B');
-
-    const sortedA = sortGroup(listA);
-    const sortedB = sortGroup(listB);
-
-    // Renderiza os componentes na tela
-    renderTable('table-grupo-a', sortedA);
-    renderTable('table-grupo-b', sortedB);
-    renderArtilharia(golsData);
-    renderMatches(groupMatches);
-    renderPlayoffs(sortedA, sortedB, allMatches);
-
   } catch (error) {
-    console.error('Erro ao carregar ou processar os dados:', error);
+    console.warn('Tabela de gols indisponível no momento:', error);
   }
+
+  // 3. Processa e exibe os dados
+  const groupMatches = allMatches.filter(m => !m['Fase'] || m['Fase'].toLowerCase().includes('grupo'));
+
+  const stats = calculateStandings(groupMatches);
+  const listA = Object.values(stats).filter(t => t.group === 'A');
+  const listB = Object.values(stats).filter(t => t.group === 'B');
+
+  const sortedA = sortGroup(listA);
+  const sortedB = sortGroup(listB);
+
+  renderTable('table-grupo-a', sortedA);
+  renderTable('table-grupo-b', sortedB);
+  renderArtilharia(golsData);
+  renderMatches(groupMatches);
+  renderPlayoffs(sortedA, sortedB, allMatches);
 }
 
-// Executa após o carregamento do DOM
+// Executa ao carregar a página
 document.addEventListener('DOMContentLoaded', init);
