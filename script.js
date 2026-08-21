@@ -1,13 +1,9 @@
 // ==========================================
 // CONFIGURAÇÃO DOS LINKS DAS PLANILHAS (CSV)
 // ==========================================
-// Aba 'Jogos' (gid=0)
-const CSV_JOGOS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTslKPXBa5hNo0fPIwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDldntNxFO/pub?gid=0&single=true&output=csv';
-
-// Aba 'Gols' (gid=648851691)
+const CSV_JOGOS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTSlKPXBa5hNoOfPlwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDIdntNxFO/pub?gid=0&single=true&output=csv';
 const CSV_GOLS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTSlKPXBa5hNoOfPlwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDIdntNxFO/pub?gid=648851691&single=true&output=csv';
 
-// Definição dos times e seus respectivos grupos
 const TEAMS = {
   'AMC FC': 'A',
   'REAL MADRUGA': 'A',
@@ -17,64 +13,37 @@ const TEAMS = {
   'CHEIOS DE MANHA': 'B'
 };
 
-// Estrutura inicial das estatísticas de cada time
 function createInitialStats() {
   const stats = {};
   for (const team in TEAMS) {
     stats[team] = {
       name: team,
       group: TEAMS[team],
-      p: 0,  // Pontos
-      j: 0,  // Jogos
-      v: 0,  // Vitórias
-      e: 0,  // Empates
-      d: 0,  // Derrotas
-      gp: 0, // Gols Pró
-      gc: 0, // Gols Contra
-      sg: 0  // Saldo de Gols
+      p: 0, j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0
     };
   }
   return stats;
 }
 
-// Converte texto CSV simples em matriz de linhas/colunas
 function parseCSVRows(text) {
   if (!text) return [];
   const lines = text.replace(/\r/g, '').trim().split('\n');
-  return lines.map(line => {
-    // Separa por vírgulas respeitando aspas duplas se existirem
-    return line.split(',').map(cell => cell.trim().replace(/^"|"$/g, ''));
-  });
+  return lines.map(line => line.split(',').map(cell => cell.trim().replace(/^"|"$/g, '')));
 }
 
-// Processa as estatísticas da Fase de Grupos
 function calculateStandings(rows) {
   const stats = createInitialStats();
   if (rows.length < 2) return stats;
 
-  // Descobre índice de cada coluna no cabeçalho (linha 0)
-  const header = rows[0].map(h => h.toLowerCase());
-  const idxMandante = header.findIndex(h => h.includes('mandante') && !h.includes('placar'));
-  const idxVisitante = header.findIndex(h => h.includes('visitante') && !h.includes('placar'));
-  const idxPlacarM = header.findIndex(h => h.includes('placar mandante') || h.includes('placar_m') || h === 'placar mandante');
-  const idxPlacarV = header.findIndex(h => h.includes('placar visitante') || h.includes('placar_v') || h === 'placar visitante');
-
-  // Caso os nomes exatos não sejam achados pelo header, usa as posições padrão da imagem (C=2, D=3, E=4, F=5)
-  const colHome = idxMandante !== -1 ? idxMandante : 2;
-  const colPlacarHome = idxPlacarM !== -1 ? idxPlacarM : 3;
-  const colPlacarAway = idxPlacarV !== -1 ? idxPlacarV : 4;
-  const colAway = idxVisitante !== -1 ? idxVisitante : 5;
-
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
-    if (!row || row.length <= colAway) continue;
+    if (!row || row.length < 6) continue;
 
-    const home = row[colHome] ? row[colHome].trim() : '';
-    const away = row[colAway] ? row[colAway].trim() : '';
-    const pHomeStr = row[colPlacarHome] !== undefined ? row[colPlacarHome].trim() : '';
-    const pAwayStr = row[colPlacarAway] !== undefined ? row[colPlacarAway].trim() : '';
+    const home = row[2] ? row[2].trim() : '';
+    const away = row[5] ? row[5].trim() : '';
+    const pHomeStr = row[3] !== undefined ? row[3].trim() : '';
+    const pAwayStr = row[4] !== undefined ? row[4].trim() : '';
 
-    // Verifica se os placares contêm valores numéricos válidos
     if (pHomeStr !== '' && pAwayStr !== '' && !isNaN(pHomeStr) && !isNaN(pAwayStr)) {
       const scoreHome = parseInt(pHomeStr, 10);
       const scoreAway = parseInt(pAwayStr, 10);
@@ -112,17 +81,15 @@ function calculateStandings(rows) {
   return stats;
 }
 
-// Ordena os times seguindo os critérios de desempate
 function sortGroup(teamsList) {
   return teamsList.sort((a, b) => {
-    if (b.p !== a.p) return b.p - a.p;   // 1º Pontos
-    if (b.v !== a.v) return b.v - a.v;   // 2º Vitórias
-    if (b.sg !== a.sg) return b.sg - a.sg; // 3º Saldo de Gols
-    return b.gp - a.gp;                   // 4º Gols Marcados
+    if (b.p !== a.p) return b.p - a.p;
+    if (b.v !== a.v) return b.v - a.v;
+    if (b.sg !== a.sg) return b.sg - a.sg;
+    return b.gp - a.gp;
   });
 }
 
-// Renderiza a tabela HTML de um grupo
 function renderTable(tableId, teamsData) {
   const tbody = document.querySelector(`#${tableId} tbody`);
   if (!tbody) return;
@@ -146,7 +113,6 @@ function renderTable(tableId, teamsData) {
   });
 }
 
-// Processa e renderiza o Ranking de Artilharia (busca direta pela Coluna B, C e D)
 function renderArtilharia(rows) {
   const tbody = document.querySelector('#table-artilharia tbody');
   if (!tbody) return;
@@ -155,7 +121,6 @@ function renderArtilharia(rows) {
   const players = {};
 
   if (rows.length > 1) {
-    // Posições baseadas no print 3: Coluna B=1 (Jogador), Coluna C=2 (Time), Coluna D=3 (Gols)
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
       if (!row || row.length < 4) continue;
@@ -193,7 +158,6 @@ function renderArtilharia(rows) {
   });
 }
 
-// Renderiza os cards dos jogos da Fase de Grupos
 function renderMatches(rows) {
   const container = document.getElementById('matches-list');
   if (!container) return;
@@ -201,13 +165,11 @@ function renderMatches(rows) {
 
   if (rows.length < 2) return;
 
-  // Índices baseados na estrutura: Data(0), Hora(1), Mandante(2), PlacarM(3), PlacarV(4), Visitante(5), Grupo(6), Fase(7)
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
     if (!row || row.length < 6) continue;
 
     const fase = row[7] ? row[7].toLowerCase() : '';
-    // Exibe apenas os jogos que são da Fase de Grupos
     if (fase && !fase.includes('grupo')) continue;
 
     const date = row[0] || '';
@@ -231,7 +193,6 @@ function renderMatches(rows) {
   }
 }
 
-// Renderiza a Fase Final
 function renderPlayoffs(groupA, groupB, rows) {
   const team1A = groupA[0] && groupA[0].j > 0 ? groupA[0].name : '1º do Grupo A';
   const team2A = groupA[1] && groupA[1].j > 0 ? groupA[1].name : '2º do Grupo A';
@@ -278,7 +239,6 @@ function renderPlayoffs(groupA, groupB, rows) {
   }
 }
 
-// Inicialização principal
 async function init() {
   let jogosRows = [];
   try {
