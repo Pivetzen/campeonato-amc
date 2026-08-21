@@ -1,8 +1,8 @@
 // ==========================================
 // CONFIGURAÇÃO DOS LINKS DAS PLANILHAS (CSV)
 // ==========================================
-const RAW_CSV_JOGOS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTSlKPXBa5hNoOfPlwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDIdntNxFO/pub?gid=0&single=true&output=csv';
-const RAW_CSV_GOLS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTSlKPXBa5hNoOfPlwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDIdntNxFO/pub?gid=648851691&single=true&output=csv';
+const RAW_CSV_JOGOS_URL = 'https://docs.google.com/spreadsheets/d/e/1MERU2o-tGJNkAsU_WVIT_YstIn8pITjQeq8EZhv7iOo/pub?gid=0&single=true&output=csv';
+const RAW_CSV_GOLS_URL = 'https://docs.google.com/spreadsheets/d/e/1MERU2o-tGJNkAsU_WVIT_YstIn8pITjQeq8EZhv7iOo/pub?gid=648851691&single=true&output=csv';
 
 // Garante que a URL seja convertida para formato CSV caso seja colada como pubhtml
 function formatToCsvUrl(url) {
