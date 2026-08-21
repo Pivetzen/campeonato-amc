@@ -1,24 +1,8 @@
 // ==========================================
-// CONFIGURAÇÃO DOS LINKS DAS PLANILHAS (CSV)
+// CONFIGURAÇÃO DOS LINKS DA SUA PLANILHA (CSV)
 // ==========================================
-const RAW_CSV_JOGOS_URL = 'https://docs.google.com/spreadsheets/d/e/1MERU2o-tGJNkAsU_WVIT_YstIn8pITjQeq8EZhv7iOo/pub?gid=0&single=true&output=csv';
-const RAW_CSV_GOLS_URL = 'https://docs.google.com/spreadsheets/d/e/1MERU2o-tGJNkAsU_WVIT_YstIn8pITjQeq8EZhv7iOo/pub?gid=648851691&single=true&output=csv';
-
-// Garante que a URL seja convertida para formato CSV caso seja colada como pubhtml
-function formatToCsvUrl(url) {
-  if (!url) return '';
-  let formatted = url.trim();
-  if (formatted.includes('/pubhtml')) {
-    formatted = formatted.replace('/pubhtml', '/pub');
-  }
-  if (!formatted.includes('output=csv')) {
-    formatted += (formatted.includes('?') ? '&' : '?') + 'output=csv';
-  }
-  return formatted;
-}
-
-const CSV_JOGOS_URL = formatToCsvUrl(RAW_CSV_JOGOS_URL);
-const CSV_GOLS_URL = formatToCsvUrl(RAW_CSV_GOLS_URL);
+const CSV_JOGOS_URL = 'https://docs.google.com/spreadsheets/d/1MERU2o-tGJNkAsU_WVIT_YstIn8pITjQeq8EZhv7iOo/gviz/tq?tqx=out:csv&sheet=Jogos';
+const CSV_GOLS_URL = 'https://docs.google.com/spreadsheets/d/1MERU2o-tGJNkAsU_WVIT_YstIn8pITjQeq8EZhv7iOo/gviz/tq?tqx=out:csv&sheet=Gols';
 
 const TEAMS = {
   'AMC FC': 'A',
@@ -41,10 +25,10 @@ function createInitialStats() {
   return stats;
 }
 
-// Parser CSV robusto que suporta quebras de linha do Windows (\r\n) e vírgulas internas
+// Parser de CSV compatível com o Google Visualization API
 function parseCSVRows(text) {
   if (!text) return [];
-  const cleanText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+  const cleanText = text.replace(/\r/g, '').trim();
   const lines = cleanText.split('\n');
   
   return lines.map(line => {
@@ -202,31 +186,25 @@ function renderMatches(rows) {
 
   if (rows.length < 2) return;
 
-  let count = 0;
-
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
     if (!row || row.length < 3) continue;
 
-    // Normalização da fase (Coluna H / Índice 7)
     const fase = row[7] ? row[7].toLowerCase().trim() : '';
     
-    // Ignora apenas se for explicitamente semifinal ou a grande final
+    // Pula semifinais e final da lista de jogos de grupos
     if (fase.includes('semifinal') || (fase.includes('final') && !fase.includes('grupo'))) {
       continue;
     }
 
-    const date = row[0] ? row[0].trim() : '';
-    const time = row[1] ? row[1].trim() : '';
-    const home = row[2] ? row[2].trim() : 'A definir';
+    const date = row[0] || '';
+    const time = row[1] || '';
+    const home = row[2] || '';
     const pHome = row[3] !== undefined && row[3].trim() !== '' ? row[3].trim() : '-';
     const pAway = row[4] !== undefined && row[4].trim() !== '' ? row[4].trim() : '-';
-    const away = row[5] ? row[5].trim() : 'A definir';
+    const away = row[5] || '';
 
-    // Evita renderizar linhas totalmente vazias da planilha
     if (!date && !home && !away) continue;
-
-    count++;
 
     const card = document.createElement('div');
     card.className = 'match-card';
@@ -239,10 +217,6 @@ function renderMatches(rows) {
       </div>
     `;
     container.appendChild(card);
-  }
-
-  if (count === 0) {
-    container.innerHTML = '<p style="text-align:center; color:#718096; width:100%;">Nenhum jogo cadastrado na fase de grupos.</p>';
   }
 }
 
@@ -259,9 +233,9 @@ function renderPlayoffs(groupA, groupB, rows) {
     if (!row) continue;
     const fase = row[7] ? row[7].toLowerCase().trim() : '';
 
-    if (fase.includes('semifinal 1') || fase === 'semi 1') semi1Row = row;
-    else if (fase.includes('semifinal 2') || fase === 'semi 2') semi2Row = row;
-    else if ((fase === 'final' || fase.includes('grande final')) && !fase.includes('semifinal')) finalRow = row;
+    if (fase.includes('semifinal 1')) semi1Row = row;
+    else if (fase.includes('semifinal 2')) semi2Row = row;
+    else if (fase === 'final' || fase.includes('grande final')) finalRow = row;
   }
 
   const getHeader = (row) => {
