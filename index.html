@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tabela do Campeonato</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Tabela do Campeonato</h1>
+    <p>Fase de Grupos, Classificação e Mata-Mata</p>
+  </header>
+
+  <main class="container">
+    <!-- Classificação dos Grupos -->
+    <section class="section-tables">
+      <h2>Classificação</h2>
+      <div class="tables-grid">
+        <div class="table-card">
+          <h3>Grupo A</h3>
+          <table id="table-grupo-a">
+            <thead>
+              <tr>
+                <th>Pos</th>
+                <th>Time</th>
+                <th>P</th>
+                <th>J</th>
+                <th>V</th>
+                <th>E</th>
+                <th>D</th>
+                <th>GP</th>
+                <th>GC</th>
+                <th>SG</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="table-card">
+          <h3>Grupo B</h3>
+          <table id="table-grupo-b">
+            <thead>
+              <tr>
+                <th>Pos</th>
+                <th>Time</th>
+                <th>P</th>
+                <th>J</th>
+                <th>V</th>
+                <th>E</th>
+                <th>D</th>
+                <th>GP</th>
+                <th>GC</th>
+                <th>SG</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Lista de Jogos -->
+    <section class="section-matches">
+      <h2>Jogos da Fase de Grupos</h2>
+      <div id="matches-list" class="matches-grid"></div>
+    </section>
+
+    <!-- Fase Final (Mata-Mata) -->
+    <section class="section-playoffs">
+      <h2>Fase Final</h2>
+      <div class="playoffs-grid">
+        <div class="playoff-card">
+          <h3>Semifinal 1 (1ºA x 2ºB)</h3>
+          <div id="semi-1" class="match-box"></div>
+        </div>
+        <div class="playoff-card">
+          <h3>Semifinal 2 (1ºB x 2ºA)</h3>
+          <div id="semi-2" class="match-box"></div>
+        </div>
+        <div class="playoff-card highlight">
+          <h3>Grande Final</h3>
+          <div id="final-match" class="match-box"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
