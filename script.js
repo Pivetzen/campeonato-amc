@@ -4,6 +4,7 @@
 const CSV_JOGOS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTSlKPXBa5hNoOfPlwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDIdntNxFO/pub?gid=0&single=true&output=csv';
 const CSV_GOLS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTSlKPXBa5hNoOfPlwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDIdntNxFO/pub?gid=648851691&single=true&output=csv';
 
+// Mapeamento dos Times nos Grupos A e B
 const TEAMS = {
   'AMC FC': 'A',
   'REAL MADRUGA': 'A',
@@ -25,7 +26,7 @@ function createInitialStats() {
   return stats;
 }
 
-// Parser CSV robusto que limpa aspas, quebras de linha e vírgulas internas
+// Parser CSV robusto para lidar com aspas e vírgulas
 function parseCSVRows(text) {
   if (!text) return [];
   const cleanText = text.replace(/\r/g, '').trim();
@@ -52,6 +53,7 @@ function parseCSVRows(text) {
   });
 }
 
+// Calcula classificação com base na aba Jogos
 function calculateStandings(rows) {
   const stats = createInitialStats();
   if (rows.length < 2) return stats;
@@ -65,6 +67,7 @@ function calculateStandings(rows) {
     const pHomeStr = row[3] !== undefined ? row[3].trim() : '';
     const pAwayStr = row[4] !== undefined ? row[4].trim() : '';
 
+    // Considera apenas jogos com placar preenchido
     if (pHomeStr !== '' && pAwayStr !== '' && !isNaN(pHomeStr) && !isNaN(pAwayStr)) {
       const scoreHome = parseInt(pHomeStr, 10);
       const scoreAway = parseInt(pAwayStr, 10);
@@ -102,6 +105,7 @@ function calculateStandings(rows) {
   return stats;
 }
 
+// Ordenação dos times (Pontos > Vitórias > Saldo de Gols > Gols Pró)
 function sortGroup(teamsList) {
   return teamsList.sort((a, b) => {
     if (b.p !== a.p) return b.p - a.p;
@@ -111,6 +115,7 @@ function sortGroup(teamsList) {
   });
 }
 
+// Renderiza as tabelas dos grupos
 function renderTable(tableId, teamsData) {
   const tbody = document.querySelector(`#${tableId} tbody`);
   if (!tbody) return;
@@ -134,6 +139,7 @@ function renderTable(tableId, teamsData) {
   });
 }
 
+// Renderiza a artilharia acumulada da aba Gols
 function renderArtilharia(rows) {
   const tbody = document.querySelector('#table-artilharia tbody');
   if (!tbody) return;
@@ -179,6 +185,7 @@ function renderArtilharia(rows) {
   });
 }
 
+// Renderiza a lista de jogos da Fase de Grupos
 function renderMatches(rows) {
   const container = document.getElementById('matches-list');
   if (!container) return;
@@ -192,7 +199,7 @@ function renderMatches(rows) {
 
     const fase = row[7] ? row[7].toLowerCase().trim() : '';
     
-    // Ignora apenas semifinais e final
+    // Ignora semifinais e final da lista geral de jogos
     if (fase.includes('semifinal') || (fase.includes('final') && !fase.includes('grupo'))) {
       continue;
     }
@@ -220,6 +227,7 @@ function renderMatches(rows) {
   }
 }
 
+// Renderiza o mata-mata (Semifinais e Final)
 function renderPlayoffs(groupA, groupB, rows) {
   const team1A = groupA[0] && groupA[0].j > 0 ? groupA[0].name : '1º do Grupo A';
   const team2A = groupA[1] && groupA[1].j > 0 ? groupA[1].name : '2º do Grupo A';
@@ -272,6 +280,7 @@ function renderPlayoffs(groupA, groupB, rows) {
   }
 }
 
+// Inicialização e requisição das planilhas
 async function init() {
   let jogosRows = [];
   try {
