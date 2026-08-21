@@ -1,9 +1,24 @@
 // ==========================================
 // CONFIGURAÇÃO DOS LINKS DAS PLANILHAS (CSV)
 // ==========================================
-// Certifique-se de que os links terminam em output=csv ou pub?gid=...&output=csv
-const CSV_JOGOS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTSlKPXBa5hNoOfPlwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDIdntNxFO/pub?gid=0&single=true&output=csv';
-const CSV_GOLS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTSlKPXBa5hNoOfPlwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDIdntNxFO/pub?gid=648851691&single=true&output=csv';
+const RAW_CSV_JOGOS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTSlKPXBa5hNoOfPlwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDIdntNxFO/pub?gid=0&single=true&output=csv';
+const RAW_CSV_GOLS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTSlKPXBa5hNoOfPlwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDIdntNxFO/pub?gid=648851691&single=true&output=csv';
+
+// Garante que a URL seja convertida para formato CSV caso seja colada como pubhtml
+function formatToCsvUrl(url) {
+  if (!url) return '';
+  let formatted = url.trim();
+  if (formatted.includes('/pubhtml')) {
+    formatted = formatted.replace('/pubhtml', '/pub');
+  }
+  if (!formatted.includes('output=csv')) {
+    formatted += (formatted.includes('?') ? '&' : '?') + 'output=csv';
+  }
+  return formatted;
+}
+
+const CSV_JOGOS_URL = formatToCsvUrl(RAW_CSV_JOGOS_URL);
+const CSV_GOLS_URL = formatToCsvUrl(RAW_CSV_GOLS_URL);
 
 const TEAMS = {
   'AMC FC': 'A',
@@ -26,10 +41,12 @@ function createInitialStats() {
   return stats;
 }
 
-// Parser de CSV robusto para lidar com aspas e vírgulas nas células
+// Parser CSV robusto que suporta quebras de linha do Windows (\r\n) e vírgulas internas
 function parseCSVRows(text) {
   if (!text) return [];
-  const lines = text.replace(/\r/g, '').trim().split('\n');
+  const cleanText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+  const lines = cleanText.split('\n');
+  
   return lines.map(line => {
     const values = [];
     let insideQuote = false;
@@ -185,27 +202,36 @@ function renderMatches(rows) {
 
   if (rows.length < 2) return;
 
+  let count = 0;
+
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
     if (!row || row.length < 3) continue;
 
+    // Normalização da fase (Coluna H / Índice 7)
     const fase = row[7] ? row[7].toLowerCase().trim() : '';
-    // Exibe jogos da fase de grupos (ou onde a fase não é semifinal/final)
+    
+    // Ignora apenas se for explicitamente semifinal ou a grande final
     if (fase.includes('semifinal') || (fase.includes('final') && !fase.includes('grupo'))) {
       continue;
     }
 
-    const date = row[0] || '';
-    const time = row[1] || '';
-    const home = row[2] || '';
+    const date = row[0] ? row[0].trim() : '';
+    const time = row[1] ? row[1].trim() : '';
+    const home = row[2] ? row[2].trim() : 'A definir';
     const pHome = row[3] !== undefined && row[3].trim() !== '' ? row[3].trim() : '-';
     const pAway = row[4] !== undefined && row[4].trim() !== '' ? row[4].trim() : '-';
-    const away = row[5] || '';
+    const away = row[5] ? row[5].trim() : 'A definir';
+
+    // Evita renderizar linhas totalmente vazias da planilha
+    if (!date && !home && !away) continue;
+
+    count++;
 
     const card = document.createElement('div');
     card.className = 'match-card';
     card.innerHTML = `
-      <div class="match-header">${date} ${time ? '• ' + time : ''}</div>
+      <div class="match-header">${date}${time ? ' • ' + time : ''}</div>
       <div class="match-body">
         <span class="team-name home">${home}</span>
         <span class="score">${pHome} x ${pAway}</span>
@@ -213,6 +239,10 @@ function renderMatches(rows) {
       </div>
     `;
     container.appendChild(card);
+  }
+
+  if (count === 0) {
+    container.innerHTML = '<p style="text-align:center; color:#718096; width:100%;">Nenhum jogo cadastrado na fase de grupos.</p>';
   }
 }
 
@@ -225,10 +255,13 @@ function renderPlayoffs(groupA, groupB, rows) {
   let semi1Row = null, semi2Row = null, finalRow = null;
 
   for (let i = 1; i < rows.length; i++) {
-    const fase = rows[i][7] ? rows[i][7].toLowerCase().trim() : '';
-    if (fase.includes('semifinal 1')) semi1Row = rows[i];
-    if (fase.includes('semifinal 2')) semi2Row = rows[i];
-    if (fase.includes('final') && !fase.includes('semifinal')) finalRow = rows[i];
+    const row = rows[i];
+    if (!row) continue;
+    const fase = row[7] ? row[7].toLowerCase().trim() : '';
+
+    if (fase.includes('semifinal 1') || fase === 'semi 1') semi1Row = row;
+    else if (fase.includes('semifinal 2') || fase === 'semi 2') semi2Row = row;
+    else if ((fase === 'final' || fase.includes('grande final')) && !fase.includes('semifinal')) finalRow = row;
   }
 
   const getHeader = (row) => {
@@ -236,7 +269,7 @@ function renderPlayoffs(groupA, groupB, rows) {
     const d = row[0] ? row[0].trim() : '';
     const h = row[1] ? row[1].trim() : '';
     if (!d && !h) return 'A definir';
-    return `${d} ${h ? '• ' + h : ''}`;
+    return `${d}${h ? ' • ' + h : ''}`;
   };
 
   const elSemi1 = document.getElementById('semi-1');
