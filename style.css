@@ -98,8 +98,10 @@ td:nth-child(2) {
   font-weight: 600;
 }
 
-tr:nth-child(1) td, tr:nth-child(2) td {
-  background-color: #f0fff4; /* Destaque para zona de classificação */
+/* Destaque para zona de classificação apenas nas tabelas da Fase de Grupos */
+.tables-grid tr:nth-child(1) td, 
+.tables-grid tr:nth-child(2) td {
+  background-color: #f0fff4;
 }
 
 /* Jogos */
@@ -158,6 +160,11 @@ tr:nth-child(1) td, tr:nth-child(2) td {
   font-size: 1.1rem;
   min-width: 50px;
   text-align: center;
+}
+
+/* Artilharia */
+.section-top-scorers {
+  margin-bottom: 2.5rem;
 }
 
 /* Fase Final */
