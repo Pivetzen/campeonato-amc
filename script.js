@@ -1,8 +1,8 @@
 // ==========================================
-// CONFIGURAÇÃO DOS LINKS DA SUA PLANILHA (CSV)
+// CONFIGURAÇÃO DOS LINKS PUBLICADOS (CSV)
 // ==========================================
-const CSV_JOGOS_URL = 'https://docs.google.com/spreadsheets/d/1MERU2o-tGJNkAsU_WVIT_YstIn8pITjQeq8EZhv7iOo/gviz/tq?tqx=out:csv&sheet=Jogos';
-const CSV_GOLS_URL = 'https://docs.google.com/spreadsheets/d/1MERU2o-tGJNkAsU_WVIT_YstIn8pITjQeq8EZhv7iOo/gviz/tq?tqx=out:csv&sheet=Gols';
+const CSV_JOGOS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTSlKPXBa5hNoOfPlwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDIdntNxFO/pub?gid=0&single=true&output=csv';
+const CSV_GOLS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTSlKPXBa5hNoOfPlwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDIdntNxFO/pub?gid=648851691&single=true&output=csv';
 
 const TEAMS = {
   'AMC FC': 'A',
@@ -25,7 +25,7 @@ function createInitialStats() {
   return stats;
 }
 
-// Parser de CSV compatível com o Google Visualization API
+// Parser CSV robusto que limpa aspas, quebras de linha e vírgulas internas
 function parseCSVRows(text) {
   if (!text) return [];
   const cleanText = text.replace(/\r/g, '').trim();
@@ -192,17 +192,17 @@ function renderMatches(rows) {
 
     const fase = row[7] ? row[7].toLowerCase().trim() : '';
     
-    // Pula semifinais e final da lista de jogos de grupos
+    // Ignora apenas semifinais e final
     if (fase.includes('semifinal') || (fase.includes('final') && !fase.includes('grupo'))) {
       continue;
     }
 
-    const date = row[0] || '';
-    const time = row[1] || '';
-    const home = row[2] || '';
+    const date = row[0] ? row[0].trim() : '';
+    const time = row[1] ? row[1].trim() : '';
+    const home = row[2] ? row[2].trim() : '';
     const pHome = row[3] !== undefined && row[3].trim() !== '' ? row[3].trim() : '-';
     const pAway = row[4] !== undefined && row[4].trim() !== '' ? row[4].trim() : '-';
-    const away = row[5] || '';
+    const away = row[5] ? row[5].trim() : '';
 
     if (!date && !home && !away) continue;
 
@@ -211,9 +211,9 @@ function renderMatches(rows) {
     card.innerHTML = `
       <div class="match-header">${date}${time ? ' • ' + time : ''}</div>
       <div class="match-body">
-        <span class="team-name home">${home}</span>
+        <span class="team-name home">${home || 'A definir'}</span>
         <span class="score">${pHome} x ${pAway}</span>
-        <span class="team-name away">${away}</span>
+        <span class="team-name away">${away || 'A definir'}</span>
       </div>
     `;
     container.appendChild(card);
@@ -233,9 +233,9 @@ function renderPlayoffs(groupA, groupB, rows) {
     if (!row) continue;
     const fase = row[7] ? row[7].toLowerCase().trim() : '';
 
-    if (fase.includes('semifinal 1')) semi1Row = row;
-    else if (fase.includes('semifinal 2')) semi2Row = row;
-    else if (fase === 'final' || fase.includes('grande final')) finalRow = row;
+    if (fase.includes('semifinal 1') || fase === 'semi 1') semi1Row = row;
+    else if (fase.includes('semifinal 2') || fase === 'semi 2') semi2Row = row;
+    else if ((fase === 'final' || fase.includes('grande final')) && !fase.includes('semifinal')) finalRow = row;
   }
 
   const getHeader = (row) => {
