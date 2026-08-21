@@ -1,8 +1,8 @@
-// Adicionado corsproxy.io/ para liberar o acesso via Fetch no navegador
-const CSV_JOGOS_URL = 'https://corsproxy.io/?' + encodeURIComponent('https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTSlKPXBa5hNoOfPlwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDIdntNxFO/pub?gid=0&single=true&output=csv');
-const CSV_GOLS_URL = 'https://corsproxy.io/?' + encodeURIComponent('https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTSlKPXBa5hNoOfPlwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDIdntNxFO/pub?gid=648851691&single=true&output=csv');
+// URLs diretas dos links CSV publicados pelo Google Sheets
+const CSV_JOGOS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTSlKPXBa5hNoOfPlwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDIdntNxFO/pub?gid=0&single=true&output=csv';
+const CSV_GOLS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTSlKPXBa5hNoOfPlwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDIdntNxFO/pub?gid=648851691&single=true&output=csv';
 
-// Mapeamento dos Times nos Grupos A e B
+// Mapeamento dos times por Grupo
 const TEAMS = {
   'AMC FC': 'A',
   'REAL MADRUGA': 'A',
@@ -24,34 +24,31 @@ function createInitialStats() {
   return stats;
 }
 
-// Parser CSV robusto para lidar com aspas e vírgulas
-function parseCSVRows(text) {
+// Converte texto CSV em matriz de dados considerando aspas
+function parseCSV(text) {
   if (!text) return [];
-  const cleanText = text.replace(/\r/g, '').trim();
-  const lines = cleanText.split('\n');
-  
+  const lines = text.replace(/\r/g, '').trim().split('\n');
   return lines.map(line => {
-    const values = [];
+    const row = [];
     let insideQuote = false;
-    let currentValue = '';
+    let value = '';
 
     for (let i = 0; i < line.length; i++) {
       const char = line[i];
       if (char === '"') {
         insideQuote = !insideQuote;
       } else if (char === ',' && !insideQuote) {
-        values.push(currentValue.trim().replace(/^"|"$/g, ''));
-        currentValue = '';
+        row.push(value.trim().replace(/^"|"$/g, ''));
+        value = '';
       } else {
-        currentValue += char;
+        value += char;
       }
     }
-    values.push(currentValue.trim().replace(/^"|"$/g, ''));
-    return values;
+    row.push(value.trim().replace(/^"|"$/g, ''));
+    return row;
   });
 }
 
-// Calcula classificação com base na aba Jogos
 function calculateStandings(rows) {
   const stats = createInitialStats();
   if (rows.length < 2) return stats;
@@ -65,7 +62,6 @@ function calculateStandings(rows) {
     const pHomeStr = row[3] !== undefined ? row[3].trim() : '';
     const pAwayStr = row[4] !== undefined ? row[4].trim() : '';
 
-    // Considera apenas jogos com placar preenchido
     if (pHomeStr !== '' && pAwayStr !== '' && !isNaN(pHomeStr) && !isNaN(pAwayStr)) {
       const scoreHome = parseInt(pHomeStr, 10);
       const scoreAway = parseInt(pAwayStr, 10);
@@ -103,7 +99,6 @@ function calculateStandings(rows) {
   return stats;
 }
 
-// Ordenação dos times (Pontos > Vitórias > Saldo de Gols > Gols Pró)
 function sortGroup(teamsList) {
   return teamsList.sort((a, b) => {
     if (b.p !== a.p) return b.p - a.p;
@@ -113,7 +108,6 @@ function sortGroup(teamsList) {
   });
 }
 
-// Renderiza as tabelas dos grupos
 function renderTable(tableId, teamsData) {
   const tbody = document.querySelector(`#${tableId} tbody`);
   if (!tbody) return;
@@ -137,7 +131,47 @@ function renderTable(tableId, teamsData) {
   });
 }
 
-// Renderiza a artilharia acumulada da aba Gols
+function renderMatches(rows) {
+  const container = document.getElementById('matches-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (rows.length < 2) return;
+
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.length < 3) continue;
+
+    const fase = row[7] ? row[7].toLowerCase().trim() : '';
+
+    // Filtra apenas jogos da fase de grupos
+    if (fase.includes('semifinal') || (fase.includes('final') && !fase.includes('grupo'))) {
+      continue;
+    }
+
+    const date = row[0] ? row[0].trim() : '';
+    const time = row[1] ? row[1].trim() : '';
+    const home = row[2] ? row[2].trim() : '';
+    const pHome = row[3] !== undefined && row[3].trim() !== '' ? row[3].trim() : '-';
+    const pAway = row[4] !== undefined && row[4].trim() !== '' ? row[4].trim() : '-';
+    const away = row[5] ? row[5].trim() : '';
+
+    if (!date && !home && !away) continue;
+
+    const card = document.createElement('div');
+    card.className = 'match-card';
+    card.innerHTML = `
+      <div class="match-header">${date}${time ? ' • ' + time : ''}</div>
+      <div class="match-body">
+        <span class="team-name home">${home || 'A definir'}</span>
+        <span class="score">${pHome} x ${pAway}</span>
+        <span class="team-name away">${away || 'A definir'}</span>
+      </div>
+    `;
+    container.appendChild(card);
+  }
+}
+
 function renderArtilharia(rows) {
   const tbody = document.querySelector('#table-artilharia tbody');
   if (!tbody) return;
@@ -183,49 +217,6 @@ function renderArtilharia(rows) {
   });
 }
 
-// Renderiza a lista de jogos da Fase de Grupos
-function renderMatches(rows) {
-  const container = document.getElementById('matches-list');
-  if (!container) return;
-  container.innerHTML = '';
-
-  if (rows.length < 2) return;
-
-  for (let i = 1; i < rows.length; i++) {
-    const row = rows[i];
-    if (!row || row.length < 3) continue;
-
-    const fase = row[7] ? row[7].toLowerCase().trim() : '';
-    
-    // Ignora semifinais e final da lista geral de jogos
-    if (fase.includes('semifinal') || (fase.includes('final') && !fase.includes('grupo'))) {
-      continue;
-    }
-
-    const date = row[0] ? row[0].trim() : '';
-    const time = row[1] ? row[1].trim() : '';
-    const home = row[2] ? row[2].trim() : '';
-    const pHome = row[3] !== undefined && row[3].trim() !== '' ? row[3].trim() : '-';
-    const pAway = row[4] !== undefined && row[4].trim() !== '' ? row[4].trim() : '-';
-    const away = row[5] ? row[5].trim() : '';
-
-    if (!date && !home && !away) continue;
-
-    const card = document.createElement('div');
-    card.className = 'match-card';
-    card.innerHTML = `
-      <div class="match-header">${date}${time ? ' • ' + time : ''}</div>
-      <div class="match-body">
-        <span class="team-name home">${home || 'A definir'}</span>
-        <span class="score">${pHome} x ${pAway}</span>
-        <span class="team-name away">${away || 'A definir'}</span>
-      </div>
-    `;
-    container.appendChild(card);
-  }
-}
-
-// Renderiza o mata-mata (Semifinais e Final)
 function renderPlayoffs(groupA, groupB, rows) {
   const team1A = groupA[0] && groupA[0].j > 0 ? groupA[0].name : '1º do Grupo A';
   const team2A = groupA[1] && groupA[1].j > 0 ? groupA[1].name : '2º do Grupo A';
@@ -239,17 +230,16 @@ function renderPlayoffs(groupA, groupB, rows) {
     if (!row) continue;
     const fase = row[7] ? row[7].toLowerCase().trim() : '';
 
-    if (fase.includes('semifinal 1') || fase === 'semi 1') semi1Row = row;
-    else if (fase.includes('semifinal 2') || fase === 'semi 2') semi2Row = row;
-    else if ((fase === 'final' || fase.includes('grande final')) && !fase.includes('semifinal')) finalRow = row;
+    if (fase.includes('semifinal 1')) semi1Row = row;
+    else if (fase.includes('semifinal 2')) semi2Row = row;
+    else if (fase === 'final' || fase.includes('grande final')) finalRow = row;
   }
 
   const getHeader = (row) => {
     if (!row) return 'A definir';
     const d = row[0] ? row[0].trim() : '';
     const h = row[1] ? row[1].trim() : '';
-    if (!d && !h) return 'A definir';
-    return `${d}${h ? ' • ' + h : ''}`;
+    return (d || h) ? `${d}${h ? ' • ' + h : ''}` : 'A definir';
   };
 
   const elSemi1 = document.getElementById('semi-1');
@@ -259,36 +249,35 @@ function renderPlayoffs(groupA, groupB, rows) {
   if (elSemi1) {
     elSemi1.innerHTML = `
       <div class="match-header">${getHeader(semi1Row)}</div>
-      <div style="margin-top: 8px;">${team1A} <br><small>vs</small><br> ${team2B}</div>
+      <div style="margin-top: 6px;">${team1A} <br><small>vs</small><br> ${team2B}</div>
     `;
   }
 
   if (elSemi2) {
     elSemi2.innerHTML = `
       <div class="match-header">${getHeader(semi2Row)}</div>
-      <div style="margin-top: 8px;">${team1B} <br><small>vs</small><br> ${team2A}</div>
+      <div style="margin-top: 6px;">${team1B} <br><small>vs</small><br> ${team2A}</div>
     `;
   }
 
   if (elFinal) {
     elFinal.innerHTML = `
       <div class="match-header">${getHeader(finalRow)}</div>
-      <div style="margin-top: 8px;">Vencedor Semifinal 1 <br><small>vs</small><br> Vencedor Semifinal 2</div>
+      <div style="margin-top: 6px;">Vencedor Semifinal 1 <br><small>vs</small><br> Vencedor Semifinal 2</div>
     `;
   }
 }
 
-// Inicialização e requisição das planilhas
 async function init() {
   let jogosRows = [];
   try {
     const res = await fetch(CSV_JOGOS_URL);
     if (res.ok) {
       const text = await res.text();
-      jogosRows = parseCSVRows(text);
+      jogosRows = parseCSV(text);
     }
   } catch (err) {
-    console.error('Erro ao carregar jogos:', err);
+    console.error('Erro ao buscar planilha de jogos:', err);
   }
 
   let golsRows = [];
@@ -296,10 +285,10 @@ async function init() {
     const res = await fetch(CSV_GOLS_URL);
     if (res.ok) {
       const text = await res.text();
-      golsRows = parseCSVRows(text);
+      golsRows = parseCSV(text);
     }
   } catch (err) {
-    console.error('Erro ao carregar gols:', err);
+    console.error('Erro ao buscar planilha de gols:', err);
   }
 
   const stats = calculateStandings(jogosRows);
@@ -311,8 +300,8 @@ async function init() {
 
   renderTable('table-grupo-a', sortedA);
   renderTable('table-grupo-b', sortedB);
-  renderArtilharia(golsRows);
   renderMatches(jogosRows);
+  renderArtilharia(golsRows);
   renderPlayoffs(sortedA, sortedB, jogosRows);
 }
 
