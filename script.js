@@ -2,7 +2,7 @@
 // CONFIGURAÇÃO DOS LINKS DAS PLANILHAS (CSV)
 // ==========================================
 // Aba 'Jogos' (gid=0)
-const CSV_JOGOS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTSlKPXBa5hNoOfPlwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDIdntNxFO/pub?gid=0&single=true&output=csv';
+const CSV_JOGOS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTslKPXBa5hNo0fPIwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDldntNxFO/pub?gid=0&single=true&output=csv';
 
 // Aba 'Gols' (gid=648851691)
 const CSV_GOLS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTSlKPXBa5hNoOfPlwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDIdntNxFO/pub?gid=648851691&single=true&output=csv';
