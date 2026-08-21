@@ -1,6 +1,7 @@
 // ==========================================
 // CONFIGURAÇÃO DOS LINKS DAS PLANILHAS (CSV)
 // ==========================================
+// Certifique-se de que os links terminam em output=csv ou pub?gid=...&output=csv
 const CSV_JOGOS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTSlKPXBa5hNoOfPlwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDIdntNxFO/pub?gid=0&single=true&output=csv';
 const CSV_GOLS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRXCCvBBp25kBOPTSlKPXBa5hNoOfPlwcOT8t8GXhwpfDMZj-nNm177BGpqJP-SBx_dhDaDIdntNxFO/pub?gid=648851691&single=true&output=csv';
 
@@ -25,10 +26,29 @@ function createInitialStats() {
   return stats;
 }
 
+// Parser de CSV robusto para lidar com aspas e vírgulas nas células
 function parseCSVRows(text) {
   if (!text) return [];
   const lines = text.replace(/\r/g, '').trim().split('\n');
-  return lines.map(line => line.split(',').map(cell => cell.trim().replace(/^"|"$/g, '')));
+  return lines.map(line => {
+    const values = [];
+    let insideQuote = false;
+    let currentValue = '';
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"') {
+        insideQuote = !insideQuote;
+      } else if (char === ',' && !insideQuote) {
+        values.push(currentValue.trim().replace(/^"|"$/g, ''));
+        currentValue = '';
+      } else {
+        currentValue += char;
+      }
+    }
+    values.push(currentValue.trim().replace(/^"|"$/g, ''));
+    return values;
+  });
 }
 
 function calculateStandings(rows) {
@@ -167,16 +187,19 @@ function renderMatches(rows) {
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
-    if (!row || row.length < 6) continue;
+    if (!row || row.length < 3) continue;
 
-    const fase = row[7] ? row[7].toLowerCase() : '';
-    if (fase && !fase.includes('grupo')) continue;
+    const fase = row[7] ? row[7].toLowerCase().trim() : '';
+    // Exibe jogos da fase de grupos (ou onde a fase não é semifinal/final)
+    if (fase.includes('semifinal') || (fase.includes('final') && !fase.includes('grupo'))) {
+      continue;
+    }
 
     const date = row[0] || '';
     const time = row[1] || '';
     const home = row[2] || '';
-    const pHome = row[3] !== undefined && row[3] !== '' ? row[3] : '-';
-    const pAway = row[4] !== undefined && row[4] !== '' ? row[4] : '-';
+    const pHome = row[3] !== undefined && row[3].trim() !== '' ? row[3].trim() : '-';
+    const pAway = row[4] !== undefined && row[4].trim() !== '' ? row[4].trim() : '-';
     const away = row[5] || '';
 
     const card = document.createElement('div');
@@ -202,15 +225,18 @@ function renderPlayoffs(groupA, groupB, rows) {
   let semi1Row = null, semi2Row = null, finalRow = null;
 
   for (let i = 1; i < rows.length; i++) {
-    const fase = rows[i][7] ? rows[i][7].toLowerCase() : '';
+    const fase = rows[i][7] ? rows[i][7].toLowerCase().trim() : '';
     if (fase.includes('semifinal 1')) semi1Row = rows[i];
     if (fase.includes('semifinal 2')) semi2Row = rows[i];
     if (fase.includes('final') && !fase.includes('semifinal')) finalRow = rows[i];
   }
 
   const getHeader = (row) => {
-    if (!row || (!row[0] && !row[1])) return 'A definir';
-    return `${row[0] || ''} ${row[1] ? '• ' + row[1] : ''}`;
+    if (!row) return 'A definir';
+    const d = row[0] ? row[0].trim() : '';
+    const h = row[1] ? row[1].trim() : '';
+    if (!d && !h) return 'A definir';
+    return `${d} ${h ? '• ' + h : ''}`;
   };
 
   const elSemi1 = document.getElementById('semi-1');
