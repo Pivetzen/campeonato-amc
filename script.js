@@ -249,14 +249,14 @@ function renderPlayoffs(groupA, groupB, rows) {
   if (elSemi1) {
     elSemi1.innerHTML = `
       <div class="match-header">${getHeader(semi1Row)}</div>
-      <div style="margin-top: 6px;">${team1A} <br><small>vs</small><br> ${team2B}</div>
+      <div style="margin-top: 6px;">${team1A} <br><small>vs</small><br> ${team2A}</div>
     `;
   }
 
   if (elSemi2) {
     elSemi2.innerHTML = `
       <div class="match-header">${getHeader(semi2Row)}</div>
-      <div style="margin-top: 6px;">${team1B} <br><small>vs</small><br> ${team2A}</div>
+      <div style="margin-top: 6px;">${team1B} <br><small>vs</small><br> ${team2B}</div>
     `;
   }
 
